@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Handwritten Character Recognition | CodeAlpha</title>
+  <meta name="description" content="AI-powered handwritten character recognition. Draw a digit or letter on the chalkboard canvas and get instant predictions." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Kalam:wght@300;400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ═══════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════ */
+    :root {
+      --chalk-green:       #1a3328;
+      --chalk-green-mid:   #1f3d2b;
+      --chalk-green-light: #264d36;
+      --chalk-green-rim:   #0e2118;
+      --chalk-white:       #e8dfc8;
+      --chalk-off:         #c8bfa8;
+      --chalk-yellow:      #f0c060;
+      --eraser-pink:       #d4826a;
+      --eraser-pink-dk:    #b86a52;
+
+      --paper-bg:          #f5f0e1;
+      --paper-line:        #d4c9a8;
+      --paper-shadow:      #c8bc96;
+      --red-pen:           #c0392b;
+      --red-pen-light:     #e74c3c;
+      --blue-pen:          #2c5f8a;
+      --ink-dark:          #2c1810;
+
+      --frame-wood:        #5c3a1e;
+      --frame-wood-light:  #7a4e2a;
+
+      --glow-green:        rgba(80, 200, 120, 0.15);
+      --glow-red:          rgba(192, 57, 43, 0.2);
+
+      --font-hand:         'Caveat', cursive;
+      --font-kalam:        'Kalam', cursive;
+      --font-ui:           'Inter', sans-serif;
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  20px;
+      --radius-xl:  32px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-ui);
+      background: #0d1f18;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(31,61,43,0.6) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(14,33,24,0.8) 0%, transparent 60%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 16px 48px;
+      overflow-x: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════════ */
+    .site-header {
+      text-align: center;
+      margin-bottom: 32px;
+      animation: fadeDown 0.7s ease both;
+    }
+
+    .site-header .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--chalk-yellow), #e8a020);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 16px rgba(240,192,96,0.35);
+    }
+
+    .site-header h1 {
+      font-family: var(--font-hand);
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 700;
+      color: var(--chalk-white);
+      letter-spacing: 0.02em;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 24px rgba(80,200,120,0.1);
+    }
+
+    .site-header p {
+      font-size: 0.9rem;
+      color: var(--chalk-off);
+      font-weight: 300;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* ═══════════════════════════════════════════════
+       MAIN LAYOUT
+    ═══════════════════════════════════════════════ */
+    .main-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 28px;
+      align-items: flex-start;
+      justify-content: center;
+      width: 100%;
+      max-width: 960px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       CHALKBOARD PANEL
+    ═══════════════════════════════════════════════ */
+    .chalkboard-panel {
+      flex: 0 0 auto;
+      animation: fadeLeft 0.7s ease 0.1s both;
+    }
+
+    /* Wooden frame wrapper */
+    .board-frame {
+      background: linear-gradient(160deg, var(--frame-wood-light), var(--frame-wood));
+      padding: 16px;
+      border-radius: var(--radius-lg);
+      box-shadow:
+        0 8px 32px rgba(0,0,0,0.6),
+        0 2px 4px rgba(255,255,255,0.06) inset,
+        0 -2px 4px rgba(0,0,0,0.4) inset;
+      position: relative;
+    }
+
+    /* Wood grain lines */
+    .board-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 18px,
+        rgba(0,0,0,0.08) 18px,
+        rgba(0,0,0,0.08) 19px
+      );
+      pointer-events: none;
+    }
+
+    .board-label {
+      font-family: var(--font-hand);
+      color: var(--chalk-yellow);
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      letter-spacing: 0.05em;
+    }
+
+    /* The green chalkboard surface */
+    .chalkboard-surface {
+      background:
+        radial-gradient(ellipse at 50% 50%, var(--chalk-green-light) 0%, var(--chalk-green) 60%, var(--chalk-green-rim) 100%);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      box-shadow:
+        0 0 0 2px rgba(255,255,255,0.04) inset,
+        0 4px 20px rgba(0,0,0,0.5) inset;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Chalk dust texture overlay */
+    .chalkboard-surface::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    /* Chalk ruler line at top */
+    .chalkboard-surface::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 8%;
+      right: 8%;
+      height: 1px;
+      background: rgba(232,223,200,0.12);
+      border-radius: 1px;
+    }
+
+    #drawingCanvas {
+      display: block;
+      border-radius: var(--radius-sm);
+      cursor: crosshair;
+      touch-action: none;
+      position: relative;
+      z-index: 1;
+      /* Slightly rough appearance via filter */
+      filter: contrast(1.05) brightness(1.02);
+    }
+
+    /* ── Hint text overlay ── */
+    .canvas-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 2;
+      transition: opacity 0.4s ease;
+    }
+
+    .canvas-hint span {
+      font-family: var(--font-hand);
+      font-size: 1.15rem;
+      color: rgba(232,223,200,0.22);
+      text-align: center;
+      line-height: 1.5;
+      user-select: none;
+    }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .brush-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brush-label {
+      font-family: var(--font-hand);
+      color: var(--chalk-off);
+      font-size: 0.9rem;
+    }
+
+    .brush-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 80px;
+      height: 4px;
+      background: rgba(232,223,200,0.2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .brush-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--chalk-white);
+      box-shadow: 0 0 6px rgba(232,223,200,0.5);
+      cursor: pointer;
+    }
+
+    .btn-eraser {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-hand);
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, var(--eraser-pink), var(--eraser-pink-dk));
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(212,130,106,0.35);
+      letter-spacing: 0.02em;
+    }
+
+    .btn-eraser:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(212,130,106,0.5);
+    }
+
+    .btn-eraser:active { transform: translateY(0); }
+
+    .btn-predict {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-ui);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, #2e7d52, #1a5c38);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-sm);
+      padding: 10px 22px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(46,125,82,0.35);
+      letter-spacing: 0.03em;
+    }
+
+    .btn-predict:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(46,125,82,0.5);
+      background: linear-gradient(135deg, #389960, #22764a);
+    }
+
+    .btn-predict:active { transform: translateY(0); }
+
+    .btn-predict .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .btn-predict.loading .spinner { display: block; }
+    .btn-predict.loading .btn-icon { display: none; }
+
+    /* ═══════════════════════════════════════════════
+       RESULTS PANEL — GRADED ANSWER SHEET
+    ═══════════════════════════════════════════════ */
+    .results-panel {
+      flex: 1 1 280px;
+      min-width: 280px;
+      max-width: 380px;
+      animation: fadeRight 0.7s ease 0.2s both;
+    }
+
+    /* Paper card with notebook lines */
+    .answer-sheet {
+      background: var(--paper-bg);
+      border-radius: var(--radius-md);
+      padding: 28px 28px 32px;
+      position: relative;
+      box-shadow:
+        0 12px 40px rgba(0,0,0,0.5),
+        0 2px 8px rgba(0,0,0,0.3),
+        4px 0 0 var(--paper-shadow) inset,
+        -4px 0 0 var(--paper-shadow) inset;
+      overflow: hidden;
+    }
+
+    /* Red margin line */
+    .answer-sheet::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 48px;
+      width: 2px;
+      background: rgba(192,57,43,0.3);
+    }
+
+    /* Horizontal ruled lines */
+    .answer-sheet::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        transparent,
+        transparent 31px,
+        var(--paper-line) 31px,
+        var(--paper-line) 32px
+      );
+      background-size: 100% 32px;
+      background-position: 0 56px;
+      pointer-events: none;
+    }
+
+    /* Paper holes */
+    .paper-holes {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-around;
+      padding: 20px 0;
+      z-index: 1;
+    }
+
+    .hole {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.6);
+      box-shadow:
+        0 0 0 2px var(--paper-shadow),
+        0 2px 6px rgba(0,0,0,0.2) inset;
+    }
+
+    .sheet-content {
+      position: relative;
+      z-index: 2;
+      padding-left: 16px;
+    }
+
+    /* Sheet header */
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--paper-line);
+      padding-bottom: 12px;
+    }
+
+    .sheet-title {
+      font-family: var(--font-kalam);
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--ink-dark);
+    }
+
+    .sheet-stamp {
+      font-family: var(--font-hand);
+      font-size: 0.78rem;
+      color: var(--blue-pen);
+      border: 2px solid var(--blue-pen);
+      border-radius: 4px;
+      padding: 2px 8px;
+      transform: rotate(-3deg);
+      opacity: 0.7;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 32px 0 24px;
+      transition: all 0.4s ease;
+    }
+
+    .empty-icon {
+      font-size: 3.5rem;
+      display: block;
+      margin-bottom: 12px;
+      opacity: 0.5;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .empty-state p {
+      font-family: var(--font-kalam);
+      font-size: 1.05rem;
+      color: #8b7d6b;
+      line-height: 1.5;
+    }
+
+    /* ── Predictions ── */
+    .predictions-container {
+      display: none;
+    }
+
+    /* Top prediction — big, circled */
+    .pred-top {
+      text-align: center;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .pred-top-label {
+      font-family: var(--font-kalam);
+      font-size: 0.85rem;
+      color: var(--red-pen);
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .pred-top-char {
+      font-family: var(--font-hand);
+      font-size: 6rem;
+      font-weight: 700;
+      color: var(--red-pen);
+      line-height: 1;
+      display: inline-block;
+      position: relative;
+      text-shadow: 1px 1px 0 rgba(192,57,43,0.2);
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+
+    /* SVG circle underline drawn around the top char */
+    .pred-top-char::after {
+      content: '';
+      position: absolute;
+      inset: -8px -14px;
+      border: 2.5px solid var(--red-pen-light);
+      border-radius: 50% 45% 55% 50% / 50% 55% 45% 50%;
+      transform: rotate(-4deg);
+      opacity: 0.65;
+      animation: drawCircle 0.6s ease 0.3s both;
+    }
+
+    @keyframes drawCircle {
+      from { clip-path: inset(0 100% 0 0); }
+      to   { clip-path: inset(0 0% 0 0); }
+    }
+
+    .pred-top-confidence {
+      display: block;
+      font-family: var(--font-hand);
+      font-size: 1.4rem;
+      color: var(--red-pen);
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    /* ── Underline score bar ── */
+    .confidence-bar-wrap {
+      margin: 8px auto 0;
+      width: 70%;
+      height: 6px;
+      background: rgba(192,57,43,0.12);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--red-pen-light), var(--red-pen));
+      border-radius: 3px;
+      transform-origin: left;
+      animation: barGrow 0.6s ease 0.4s both;
+    }
+
+    @keyframes barGrow {
+      from { transform: scaleX(0); }
+      to   { transform: scaleX(1); }
+    }
+
+    /* ── Runner-ups ── */
+    .pred-others {
+      margin-top: 8px;
+    }
+
+    .pred-others-label {
+      font-family: var(--font-kalam);
+      font-size: 0.78rem;
+      color: #8b7d6b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .pred-other-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: all 0.35s ease;
+    }
+
+    .pred-other-item.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .pred-other-rank {
+      font-family: var(--font-hand);
+      font-size: 0.85rem;
+      color: var(--red-pen);
+      width: 22px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .pred-other-char {
+      font-family: var(--font-hand);
+      font-size: 2rem;
+      font-weight: 600;
+      color: #4a3728;
+      line-height: 1;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .pred-other-bar-wrap {
+      flex: 1;
+      height: 5px;
+      background: rgba(0,0,0,0.07);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .pred-other-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #8b7d6b, #5c4a38);
+      border-radius: 3px;
+    }
+
+    .pred-other-pct {
+      font-family: var(--font-kalam);
+      font-size: 0.85rem;
+      color: #6b5a48;
+      min-width: 42px;
+      text-align: right;
+    }
+
+    /* ── Error state ── */
+    .error-msg {
+      display: none;
+      font-family: var(--font-kalam);
+      font-size: 0.95rem;
+      color: var(--red-pen);
+      text-align: center;
+      padding: 16px;
+      background: rgba(192,57,43,0.06);
+      border-radius: var(--radius-sm);
+      border: 1px dashed rgba(192,57,43,0.3);
+    }
+
+    /* ═══════════════════════════════════════════════
+       FOOTER / INFO STRIP
+    ═══════════════════════════════════════════════ */
+    .info-strip {
+      margin-top: 28px;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      color: rgba(200,191,168,0.4);
+      text-align: center;
+      letter-spacing: 0.05em;
+      animation: fadeUp 0.7s ease 0.4s both;
+    }
+
+    .info-strip strong { color: rgba(200,191,168,0.6); }
+
+    /* ═══════════════════════════════════════════════
+       KEYFRAMES
+    ═══════════════════════════════════════════════ */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeLeft {
+      from { opacity: 0; transform: translateX(-24px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes fadeRight {
+      from { opacity: 0; transform: translateX(24px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-6px); }
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.4); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════ */
+    @media (max-width: 640px) {
+      body { padding: 14px 10px 36px; }
+
+      .main-layout { gap: 20px; }
+
+      .board-frame { padding: 10px; }
+
+      .toolbar { flex-wrap: wrap; gap: 8px; }
+
+      .btn-predict { width: 100%; justify-content: center; }
+
+      .results-panel { min-width: unset; max-width: 100%; }
+
+      .pred-top-char { font-size: 5rem; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ░░░ HEADER ░░░ -->
+  <header class="site-header">
+    <div class="logo-row">
+      <div class="logo-icon">✏️</div>
+      <h1>Character Recognition</h1>
+    </div>
+    <p>EMNIST · 47 Classes · CNN Model — CodeAlpha Project</p>
+  </header>
+
+  <!-- ░░░ MAIN LAYOUT ░░░ -->
+  <div class="main-layout">
+
+    <!-- ── CHALKBOARD PANEL ── -->
+    <section class="chalkboard-panel" aria-label="Drawing canvas">
+      <div class="board-frame">
+        <div class="board-label">✦ Draw your character here ✦</div>
+        <div class="chalkboard-surface" id="chalkboardSurface">
+          <!-- The canvas hint is a visual overlay -->
+          <div class="canvas-hint" id="canvasHint">
+            <span>Draw a digit<br/>or letter…</span>
+          </div>
+          <canvas id="drawingCanvas" width="320" height="320"
+                  aria-label="Drawing area — draw a character here"
+                  role="img"></canvas>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div class="brush-controls">
+            <span class="brush-label">🖊</span>
+            <input type="range" class="brush-slider" id="brushSize"
+                   min="8" max="28" value="16"
+                   aria-label="Brush size" />
+          </div>
+
+          <button class="btn-eraser" id="clearBtn" type="button"
+                  aria-label="Clear canvas">
+            <span>🧹</span>
+            <span>Erase</span>
+          </button>
+
+          <button class="btn-predict" id="predictBtn" type="button"
+                  aria-label="Predict character">
+            <span class="btn-icon">⚡</span>
+            <div class="spinner"></div>
+            <span>Predict</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── RESULTS PANEL ── -->
+    <section class="results-panel" aria-label="Prediction results" aria-live="polite">
+      <div class="answer-sheet">
+        <!-- Notebook binding holes -->
+        <div class="paper-holes" aria-hidden="true">
+          <div class="hole"></div>
+          <div class="hole"></div>
+          <div class="hole"></div>
+        </div>
+
+        <div class="sheet-content">
+          <!-- Sheet header -->
+          <div class="sheet-header">
+            <span class="sheet-title">Answer Sheet</span>
+            <span class="sheet-stamp">EMNIST CNN</span>
+          </div>
+
+          <!-- Empty state -->
+          <div class="empty-state" id="emptyState">
+            <span class="empty-icon">📝</span>
+            <p>Draw a character on the<br/>chalkboard, then hit <strong>Predict</strong>!</p>
+          </div>
+
+          <!-- Error -->
+          <div class="error-msg" id="errorMsg" role="alert"></div>
+
+          <!-- Predictions -->
+          <div class="predictions-container" id="predictionsContainer">
+
+            <!-- Top prediction -->
+            <div class="pred-top">
+              <span class="pred-top-label">✔ Best Match</span>
+              <div>
+                <span class="pred-top-char" id="topChar">A</span>
+              </div>
+              <span class="pred-top-confidence" id="topConfidence">0%</span>
+              <div class="confidence-bar-wrap">
+                <div class="confidence-bar-fill" id="topBar" style="width:0%"></div>
+              </div>
+            </div>
+
+            <!-- Runner-ups -->
+            <div class="pred-others">
+              <span class="pred-others-label">Other possibilities</span>
+
+              <div class="pred-other-item" id="pred2" aria-label="Second prediction">
+                <span class="pred-other-rank">②</span>
+                <span class="pred-other-char" id="char2">—</span>
+                <div class="pred-other-bar-wrap">
+                  <div class="pred-other-bar" id="bar2" style="width:0%"></div>
+                </div>
+                <span class="pred-other-pct" id="pct2">0%</span>
+              </div>
+
+              <div class="pred-other-item" id="pred3" aria-label="Third prediction">
+                <span class="pred-other-rank">③</span>
+                <span class="pred-other-char" id="char3">—</span>
+                <div class="pred-other-bar-wrap">
+                  <div class="pred-other-bar" id="bar3" style="width:0%"></div>
+                </div>
+                <span class="pred-other-pct" id="pct3">0%</span>
+              </div>
+            </div>
+
+          </div><!-- /predictions-container -->
+        </div><!-- /sheet-content -->
+      </div><!-- /answer-sheet -->
+    </section>
+
+  </div><!-- /main-layout -->
+
+  <!-- ░░░ FOOTER ░░░ -->
+  <p class="info-strip">
+    Model: <strong>CNN · EMNIST Balanced</strong> &nbsp;|&nbsp;
+    Classes: <strong>47</strong> &nbsp;|&nbsp;
+    Input: <strong>28 × 28 grayscale</strong>
+  </p>
+
+  <!-- ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+       JAVASCRIPT — Canvas drawing + API call
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ -->
+  <script>
+  (() => {
+    'use strict';
+
+    /* ── DOM refs ──────────────────────────────── */
+    const canvas      = document.getElementById('drawingCanvas');
+    const ctx         = canvas.getContext('2d');
+    const clearBtn    = document.getElementById('clearBtn');
+    const predictBtn  = document.getElementById('predictBtn');
+    const brushSlider = document.getElementById('brushSize');
+    const hintEl      = document.getElementById('canvasHint');
+
+    /* Results DOM */
+    const emptyState    = document.getElementById('emptyState');
+    const errorMsg      = document.getElementById('errorMsg');
+    const predsCont     = document.getElementById('predictionsContainer');
+    const topChar       = document.getElementById('topChar');
+    const topConf       = document.getElementById('topConfidence');
+    const topBar        = document.getElementById('topBar');
+    const char2         = document.getElementById('char2');
+    const bar2          = document.getElementById('bar2');
+    const pct2          = document.getElementById('pct2');
+    const char3         = document.getElementById('char3');
+    const bar3          = document.getElementById('bar3');
+    const pct3          = document.getElementById('pct3');
+    const pred2row      = document.getElementById('pred2');
+    const pred3row      = document.getElementById('pred3');
+
+    /* ── Drawing state ─────────────────────────── */
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+    let hasDrawn  = false;          // tracks if canvas is non-empty
+
+    /* ── Canvas initialisation ─────────────────── */
+    function initCanvas() {
+      ctx.fillStyle = '#1a3328';    // chalkboard green background
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.lineCap    = 'round';
+      ctx.lineJoin   = 'round';
+      ctx.strokeStyle = '#e8dfc8'; // chalk white
+      ctx.lineWidth  = parseInt(brushSlider.value);
+      ctx.shadowColor = 'rgba(232,223,200,0.35)';
+      ctx.shadowBlur  = 3;          // slight chalk glow
+    }
+
+    initCanvas();
+
+    /* ── Get pointer pos (mouse / touch) ─────── */
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width  / rect.width;
+      const scaleY = canvas.height / rect.height;
+      if (e.touches) {
+        return {
+          x: (e.touches[0].clientX - rect.left) * scaleX,
+          y: (e.touches[0].clientY - rect.top)  * scaleY,
+        };
+      }
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top)  * scaleY,
+      };
+    }
+
+    /* ── Draw a smooth stroke using quadratic curves ── */
+    function startDraw(e) {
+      e.preventDefault();
+      isDrawing = true;
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
+      ctx.lineWidth = parseInt(brushSlider.value);
+
+      /* Put a small dot for single taps/clicks */
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, ctx.lineWidth / 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = '#e8dfc8';
+      ctx.fill();
+
+      markDrawn();
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+
+      const pos = getPos(e);
+      const midX = (lastX + pos.x) / 2;
+      const midY = (lastY + pos.y) / 2;
+
+      ctx.lineWidth   = parseInt(brushSlider.value);
+      ctx.strokeStyle = '#e8dfc8';
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      /* Quadratic bezier for smoothness — removes jagged mouse edges */
+      ctx.quadraticCurveTo(lastX, lastY, midX, midY);
+      ctx.stroke();
+
+      lastX = pos.x;
+      lastY = pos.y;
+    }
+
+    function endDraw(e) {
+      if (!isDrawing) return;
+      isDrawing = false;
+
+      /* Final segment to the release point */
+      const pos = (e.changedTouches) ? {
+        x: (e.changedTouches[0].clientX - canvas.getBoundingClientRect().left) * (canvas.width  / canvas.getBoundingClientRect().width),
+        y: (e.changedTouches[0].clientY - canvas.getBoundingClientRect().top)  * (canvas.height / canvas.getBoundingClientRect().height),
+      } : { x: lastX, y: lastY };
+
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    }
+
+    function markDrawn() {
+      if (!hasDrawn) {
+        hasDrawn = true;
+        hintEl.style.opacity = '0';
+      }
+    }
+
+    /* ── Event listeners ───────────────────────── */
+    /* Mouse */
+    canvas.addEventListener('mousedown',  startDraw);
+    canvas.addEventListener('mousemove',  draw);
+    canvas.addEventListener('mouseup',    endDraw);
+    canvas.addEventListener('mouseleave', endDraw);
+
+    /* Touch */
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove',  draw,      { passive: false });
+    canvas.addEventListener('touchend',   endDraw,   { passive: false });
+
+    /* Brush size */
+    brushSlider.addEventListener('input', () => {
+      ctx.lineWidth = parseInt(brushSlider.value);
+    });
+
+    /* ── Clear / Erase ──────────────────────────── */
+    clearBtn.addEventListener('click', () => {
+      hasDrawn = false;
+      hintEl.style.opacity = '1';
+      initCanvas();
+      showEmpty();
+    });
+
+    /* ── Show / hide result states ─────────────── */
+    function showEmpty() {
+      emptyState.style.display  = 'block';
+      predsCont.style.display   = 'none';
+      errorMsg.style.display    = 'none';
+    }
+
+    function showError(msg) {
+      emptyState.style.display  = 'none';
+      predsCont.style.display   = 'none';
+      errorMsg.style.display    = 'block';
+      errorMsg.textContent      = '⚠ ' + msg;
+    }
+
+    function showPredictions(preds) {
+      emptyState.style.display  = 'none';
+      errorMsg.style.display    = 'none';
+      predsCont.style.display   = 'block';
+
+      /* Top prediction */
+      const top = preds[0];
+      topChar.textContent = top.character;
+      topConf.textContent = top.confidence.toFixed(1) + '%';
+      topBar.style.width  = top.confidence + '%';
+
+      /* Re-trigger animation */
+      topChar.style.animation = 'none';
+      topChar.offsetHeight;   // reflow
+      topChar.style.animation = '';
+
+      /* Runner-ups */
+      if (preds[1]) {
+        char2.textContent    = preds[1].character;
+        pct2.textContent     = preds[1].confidence.toFixed(1) + '%';
+        bar2.style.width     = preds[1].confidence + '%';
+        setTimeout(() => pred2row.classList.add('visible'), 80);
+      }
+
+      if (preds[2]) {
+        char3.textContent    = preds[2].character;
+        pct3.textContent     = preds[2].confidence.toFixed(1) + '%';
+        bar3.style.width     = preds[2].confidence + '%';
+        setTimeout(() => pred3row.classList.add('visible'), 180);
+      }
+
+      /* Reset row visibility so animations replay next time */
+      pred2row.classList.remove('visible');
+      pred3row.classList.remove('visible');
+    }
+
+    /* ── Predict ────────────────────────────────── */
+    predictBtn.addEventListener('click', async () => {
+      if (!hasDrawn) {
+        showError('Please draw a character first!');
+        return;
+      }
+
+      /* Loading state */
+      predictBtn.classList.add('loading');
+      predictBtn.disabled = true;
+
+      try {
+        /* Export canvas as base64 PNG */
+        const imageData = canvas.toDataURL('image/png');
+
+        const response = await fetch('/predict', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ image: imageData }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Server error ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.predictions || data.predictions.length === 0) {
+          throw new Error('No predictions returned.');
+        }
+
+        showPredictions(data.predictions);
+
+      } catch (err) {
+        showError(err.message || 'Prediction failed. Please try again.');
+      } finally {
+        predictBtn.classList.remove('loading');
+        predictBtn.disabled = false;
+      }
+    });
+
+    /* ── Keyboard shortcut: Enter to predict ──── */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.target.closest('button')) {
+        predictBtn.click();
+      }
+      if (e.key === 'Escape') {
+        clearBtn.click();
+      }
+    });
+
+    /* ── Init result state ───────────────────── */
+    showEmpty();
+
+  })();
+  </script>
+</body>
+</html>

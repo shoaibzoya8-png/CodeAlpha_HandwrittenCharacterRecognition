@@ -1,0 +1,6 @@
+venv311/
+__pycache__/
+*.pyc
+debug_preprocessed.png
+emnist_torch_7_*.png
+emnist_torch/
